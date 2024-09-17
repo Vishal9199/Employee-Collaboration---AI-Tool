@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Collaboration Sentiment Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        #github-form {
+            margin-bottom: 20px;
+        }
+        #github-form input {
+            padding: 10px;
+            font-size: 16px;
+            width: 300px;
+        }
+        #github-form button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #0366d6;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+        #github-form button:hover {
+            background-color: #0256b1;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            font-size: 18px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Team Collaboration Sentiment Dashboard</h1>
+        
+        <div id="github-form">
+            <input type="text" id="repo-url" placeholder="Enter GitHub repository URL (e.g., https://github.com/user/repo)">
+            <button onclick="fetchGitHubData()">Analyze Sentiment</button>
+        </div>
+        
+        <div class="loading" id="loading">Analyzing repository data and sentiment...</div>
+        
+        <div class="dashboard">
+            <div class="card">
+                <h2>Sentiment Overview</h2>
+                <canvas id="sentimentChart"></canvas>
+            </div>
+            <div class="card">
+                <h2>Team Involvement</h2>
+                <canvas id="involvementChart"></canvas>
+            </div>
+            <div class="card">
+                <h2>Communication Tone</h2>
+                <canvas id="toneChart"></canvas>
+            </div>
+            <div class="card">
+                <h2>Collaboration Score</h2>
+                <canvas id="collaborationChart"></canvas>
+            </div>
+            <div class="card">
+                <h2>Issue Responses</h2>
+                <canvas id="issueResponseChart"></canvas>
+            </div>
+            <div class="card">
+                <h2>Author Responses Sentiment</h2>
+                <canvas id="authorResponseChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sentimentChart, involvementChart, toneChart, collaborationChart, issueResponseChart, authorResponseChart;
+
+        function initCharts() {
+            sentimentChart = new Chart(document.getElementById('sentimentChart').getContext('2d'), {
+                type: 'pie',
+                data: {
+                    labels: ['Positive', 'Neutral', 'Negative'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: ['#36a2eb', '#ffcd56', '#ff6384']
+                    }]
+                }
+            });
+
+            involvementChart = new Chart(document.getElementById('involvementChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Commits',
+                        data: [],
+                        backgroundColor: '#4bc0c0'
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            toneChart = new Chart(document.getElementById('toneChart').getContext('2d'), {
+                type: 'radar',
+                data: {
+                    labels: ['Professional', 'Friendly', 'Urgent', 'Formal', 'Casual'],
+                    datasets: [{
+                        label: 'Communication Tone',
+                        data: [0, 0, 0, 0, 0],
+                        fill: true,
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgb(54, 162, 235)',
+                        pointBackgroundColor: 'rgb(54, 162, 235)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgb(54, 162, 235)'
+                    }]
+                },
+                options: {
+                    scales: {
+                        r: {
+                            angleLines: {
+                                display: false
+                            },
+                            suggestedMin: 0,
+                            suggestedMax: 100
+                        }
+                    }
+                }
+            });
+
+            collaborationChart = new Chart(document.getElementById('collaborationChart').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Collaboration Score'],
+                    datasets: [{
+                        data: [0, 100],
+                        backgroundColor: ['#4bc0c0', '#e7e7e7']
+                    }]
+                },
+                options: {
+                    cutout: '80%',
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+
+            issueResponseChart = new Chart(document.getElementById('issueResponseChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Issues Assigned',
+                        data: [],
+                        backgroundColor: '#ff6384'
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            authorResponseChart = new Chart(document.getElementById('authorResponseChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['Positive', 'Neutral', 'Negative'],
+                    datasets: [{
+                        label: 'Author Responses Sentiment',
+                        data: [0, 0, 0],
+                        backgroundColor: ['#36a2eb', '#ffcd56', '#ff6384']
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function fetchGitHubData() {
+            const repoUrl = document.getElementById('repo-url').value;
+            const loading = document.getElementById('loading');
+            loading.style.display = 'block';
+
+            axios.post('http://127.0.0.1:5000/analyze', { repoUrl })
+                .then(response => {
+                    const data = response.data;
+                    updateCharts(data);
+                    loading.style.display = 'none';
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                    loading.style.display = 'none';
+                });
+        }
+
+        function updateCharts(data) {
+            sentimentChart.data.datasets[0].data = [
+                data.sentiment.positive,
+                data.sentiment.neutral,
+                data.sentiment.negative
+            ];
+            sentimentChart.update();
+
+            involvementChart.data.labels = data.involvement.labels;
+            involvementChart.data.datasets[0].data = data.involvement.data;
+            involvementChart.update();
+
+            toneChart.data.datasets[0].data = data.tone;
+            toneChart.data.labels = ['Professional', 'Friendly', 'Urgent', 'Formal', 'Casual'];
+            toneChart.update();
+
+            collaborationChart.data.datasets[0].data = [data.collaborationScore, 100 - data.collaborationScore];
+            collaborationChart.update();
+
+            issueResponseChart.data.labels = data.issueResponses.labels;
+            issueResponseChart.data.datasets[0].data = data.issueResponses.data;
+            issueResponseChart.update();
+        }
+
+        initCharts();
+    </script>
+</body>
+</html>
